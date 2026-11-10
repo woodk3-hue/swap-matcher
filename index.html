@@ -606,8 +606,8 @@ function swapMessage(rows){
   if(parts.length) msg+='They would be '+parts.join(' or ')+' swaps to keep the BLP count.\n';
   msg+='\n'+rows.map(x=>{
     const off=x.res.myOff.length?x.res.myOff.map(i=>D3[i]).join('/'):'none';
-    let line='• W/C '+ddmm(x.it.wc)+(x.res.blp&&x.res.blp.mfOnly?' ('+x.res.blp.part+')':'')+' – Link '+x.mine.link+' ('+off+')';
-    if(withShifts) line+='\n\t'+x.mine.days.map(c=>c.label).join('\t');
+    let line='W/C '+ddmm(x.it.wc)+(x.res.blp&&x.res.blp.mfOnly?' ('+x.res.blp.part+')':'')+' – Link '+x.mine.link+' ('+off+')';
+    if(withShifts) line+='\n\t'+x.mine.days.map(c=>c.label.replace(':','')).join('\t');  // times as 1503, not 15:03
     return line;
   }).join(withShifts?'\n\n':'\n');
   return msg;
