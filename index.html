@@ -82,6 +82,7 @@ input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-vis
 .pick input{width:20px;height:20px;accent-color:var(--accent)}
 .copybar{position:sticky;bottom:0;margin-bottom:calc(-1 * env(safe-area-inset-bottom,0px));padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));background:var(--panel);border:1px solid var(--line);border-radius:14px;display:flex;align-items:center;gap:10px;box-shadow:0 -6px 24px rgba(0,0,0,.12)}
 .copybar #copy-count{font-weight:600;flex:1}
+.copybar{flex-wrap:wrap}
 .wrap{padding-bottom:4px}
 .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
 .card.best{border-color:var(--good);box-shadow:inset 4px 0 0 var(--good)}
@@ -192,6 +193,7 @@ details summary{cursor:pointer;font-weight:600;color:var(--muted);font-size:14px
 
   <div class="copybar" id="copybar" hidden>
     <span id="copy-count"></span>
+    <label class="check"><input type="checkbox" id="copy-shifts" checked> Include my shifts</label>
     <button class="btn primary" type="button" id="copy-sel">Copy selected</button>
     <span class="copied" id="copy-done" hidden>Copied</span>
   </div>
@@ -581,13 +583,7 @@ function render(){
     const cb=el.querySelector('input[data-key]');
     if(cb) cb.addEventListener('change',()=>{cb.checked?picked.add(key):picked.delete(key);updateCopyBar();});
     const b=el.querySelector('button');
-    if(b) b.addEventListener('click',()=>{
-      const offTxt=res.myOff.length?res.myOff.map(i=>D3[i]).join(' / '):'none';
-      const msg='Hi, I\'m interested in W/C '+ddmm(it.wc)+(it.link?' Link '+it.link:'')+'. I can swap you my Link '+mine.link+' ('+(want==='am'?'PMs':'AMs')+'), days off '+offTxt+'.';
-      const done=()=>{const c=el.querySelector('.copied');c.hidden=false;setTimeout(()=>c.hidden=true,1800);};
-      const fallback=()=>{const t=document.createElement('textarea');t.value=msg;document.body.appendChild(t);t.select();try{document.execCommand('copy');done();}catch(e){}t.remove();};
-      if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(msg).then(done,fallback); else fallback();
-    });
+    if(b) b.addEventListener('click',()=>copyText(swapMessage([x]),()=>{const c=el.querySelector('.copied');c.hidden=false;setTimeout(()=>c.hidden=true,1800);}));
     cards.appendChild(el);
   });
   if(!list.length) cards.innerHTML='<div class="empty">Every week in this post is sold. Tick “Show sold” to see them.</div>';
@@ -602,16 +598,28 @@ function updateCopyBar(){
   $('copybar').hidden=!n;
   $('copy-count').textContent=n+' week'+(n===1?'':'s')+' ticked';
 }
+// The message you post: your links on offer, with days off, any part-week swap and (optionally) your shifts
+function swapMessage(rows){
+  const withShifts=$('copy-shifts').checked;
+  const parts=[...new Set(rows.filter(x=>x.res.blp&&x.res.blp.mfOnly).map(x=>x.res.blp.part))];
+  let msg='I\'ve got these.\n';
+  if(parts.length) msg+='They would be '+parts.join(' or ')+' swaps to keep the BLP count.\n';
+  msg+='\n'+rows.map(x=>{
+    const off=x.res.myOff.length?x.res.myOff.map(i=>D3[i]).join('/'):'none';
+    let line='• W/C '+ddmm(x.it.wc)+(x.res.blp&&x.res.blp.mfOnly?' ('+x.res.blp.part+')':'')+' – Link '+x.mine.link+' ('+off+')';
+    if(withShifts) line+='\n\t'+x.mine.days.map(c=>c.label).join('\t');
+    return line;
+  }).join(withShifts?'\n\n':'\n');
+  return msg;
+}
+function copyText(msg,done){
+  const fallback=()=>{const t=document.createElement('textarea');t.value=msg;document.body.appendChild(t);t.select();try{document.execCommand('copy');done();}catch(e){}t.remove();};
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(msg).then(done,fallback); else fallback();
+}
 function copySelected(){
   const rows=lastList.filter(x=>picked.has(ymd(x.it.wc)+'|'+(x.it.link||'')));
   if(!rows.length) return;
-  const giving=lastWant==='am'?'PMs':'AMs', getting=lastWant==='am'?'AMs':'PMs';
-  const lines=rows.map(x=>{const off=x.res.myOff.length?x.res.myOff.map(i=>D3[i]).join('/'):'none';
-    return '• W/C '+ddmm(x.it.wc)+(x.res.blp&&x.res.blp.mfOnly?' ('+x.res.blp.part+')':'')+(x.it.link?' – your Link '+x.it.link:'')+' for my Link '+x.mine.link+' (my days off '+off+(x.res.blp&&x.res.blp.ok?', BLP/SLP balanced':'')+')';});
-  const msg='Hi, I\'m interested in swapping my '+giving+' for your '+getting+' on these weeks:\n'+lines.join('\n');
-  const done=()=>{const c=$('copy-done');c.hidden=false;setTimeout(()=>c.hidden=true,1800);};
-  const fallback=()=>{const t=document.createElement('textarea');t.value=msg;document.body.appendChild(t);t.select();try{document.execCommand('copy');done();}catch(e){}t.remove();};
-  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(msg).then(done,fallback); else fallback();
+  copyText(swapMessage(rows),()=>{const c=$('copy-done');c.hidden=false;setTimeout(()=>c.hidden=true,1800);});
 }
 
 function save(){ store.set('lsm_link',$('my-link').value); store.set('lsm_wc',$('my-wc').value); store.set('lsm_post',$('post').value); store.set('lsm_want',$('want-pm').checked?'pm':'am'); }
@@ -631,6 +639,7 @@ function boot(){
   $('sel-matches').addEventListener('click',()=>{lastList.filter(x=>x.res.level!=='no').forEach(x=>picked.add(ymd(x.it.wc)+'|'+(x.it.link||'')));render();});
   $('sel-clear').addEventListener('click',()=>{picked.clear();render();});
   $('copy-sel').addEventListener('click',copySelected);
+  {const v=store.get('lsm_copy_shifts'); if(v!=null) $('copy-shifts').checked=v==='1'; $('copy-shifts').addEventListener('input',()=>store.set('lsm_copy_shifts',$('copy-shifts').checked?'1':'0'));}
   $('roster-pdf').addEventListener('change',async e=>{
     const f=e.target.files[0]; if(!f) return; e.target.value='';
     $('roster-note').textContent='Reading '+f.name+'…';
