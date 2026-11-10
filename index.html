@@ -1,0 +1,670 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#d97706">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Swap Matcher">
+<meta name="description" content="Paste a swap post and see which weeks line up with your link.">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light}body{margin:0;font-size:14px}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Link Swap Matcher</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@600;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: one narrow working column — your link, the pasted post, then one card per week on offer, best matches marked */
+:root{
+  --bg:#f3f4f7; --panel:#ffffff; --ink:#151a2b; --muted:#5d6479; --line:#dde0e8;
+  --accent:#d97706; --accent-ink:#ffffff;
+  --am:#0f7a52; --am-bg:#dcf3e8; --pm:#b45309; --pm-bg:#fdecd3;
+  --off:#5b4bc4; --off-bg:#e7e4fb; --leave:#9d174d; --leave-bg:#fbe1ec;
+  --good:#0f7a52; --good-bg:#d9f2e6; --warn:#a16207; --warn-bg:#fbf0cf; --bad:#8a8fa3; --bad-bg:#eceef3;
+  --f-display:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1220; --panel:#161b2c; --ink:#eef0f7; --muted:#9aa1b8; --line:#2a3046;
+  --accent:#f59e0b; --accent-ink:#141414;
+  --am:#5fd3a2; --am-bg:#123a2c; --pm:#fbbf6a; --pm-bg:#3d2a10;
+  --off:#b3a8ff; --off-bg:#2a2556; --leave:#f58cb7; --leave-bg:#3f1a2c;
+  --good:#5fd3a2; --good-bg:#123a2c; --warn:#f2cf6b; --warn-bg:#3a3012; --bad:#8b92a8; --bad-bg:#22283b;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1220; --panel:#161b2c; --ink:#eef0f7; --muted:#9aa1b8; --line:#2a3046;
+  --accent:#f59e0b; --accent-ink:#141414;
+  --am:#5fd3a2; --am-bg:#123a2c; --pm:#fbbf6a; --pm-bg:#3d2a10;
+  --off:#b3a8ff; --off-bg:#2a2556; --leave:#f58cb7; --leave-bg:#3f1a2c;
+  --good:#5fd3a2; --good-bg:#123a2c; --warn:#f2cf6b; --warn-bg:#3a3012; --bad:#8b92a8; --bad-bg:#22283b;
+  color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:760px;margin:0 auto;display:flex;flex-direction:column;gap:18px}
+h1{font-family:var(--f-display);font-weight:800;font-size:30px;letter-spacing:.01em;margin:0;line-height:1.1;text-wrap:balance}
+.lede{color:var(--muted);margin:4px 0 0;max-width:62ch}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.label{font-family:var(--f-display);font-weight:700;font-size:13px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field span{font-size:12px;color:var(--muted);font-weight:600}
+input[type=number],input[type=date],textarea,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+input[type=number]{width:110px;font-family:var(--f-mono);font-weight:600}
+textarea{width:100%;min-height:150px;font-family:var(--f-mono);font-size:13px;line-height:1.45;resize:vertical}
+input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-visible,.seg label:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.note{font-size:13px;color:var(--muted)}
+.note b{color:var(--ink);font-weight:600}
+.btn{font:600 14px var(--f-body);border-radius:10px;padding:10px 14px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.filebtn{position:relative;overflow:hidden}
+.filebtn input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg label{padding:9px 12px;font-size:14px;font-weight:600;cursor:pointer;color:var(--muted)}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label:has(input:checked){background:var(--accent);color:var(--accent-ink)}
+.check{display:flex;gap:8px;align-items:center;font-size:14px;cursor:pointer}
+.example{background:var(--warn-bg);color:var(--warn);border-radius:10px;padding:8px 12px;font-size:13px;font-weight:600}
+.summary{display:flex;flex-wrap:wrap;gap:8px}
+.dirnote{margin:0;font-size:14px;font-weight:600;color:var(--ink)}
+.skipped{background:var(--warn-bg);color:var(--warn);border-radius:12px;padding:10px 14px;font-size:13px}
+.skipped ul{margin:6px 0 0;padding-left:18px;font-family:var(--f-mono);color:var(--ink);word-break:break-word}
+.chip{font:600 13px var(--f-body);padding:5px 10px;border-radius:999px;background:var(--bad-bg);color:var(--bad)}
+.chip.best{background:var(--good-bg);color:var(--good)}
+.chip.good{background:var(--warn-bg);color:var(--warn)}
+.cards{display:flex;flex-direction:column;gap:12px}
+.selrow{display:flex;flex-wrap:wrap;gap:8px}
+.pick{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}
+.pick input{width:20px;height:20px;accent-color:var(--accent)}
+.copybar{position:sticky;bottom:0;margin-bottom:calc(-1 * env(safe-area-inset-bottom,0px));padding:10px 14px calc(10px + env(safe-area-inset-bottom,0px));background:var(--panel);border:1px solid var(--line);border-radius:14px;display:flex;align-items:center;gap:10px;box-shadow:0 -6px 24px rgba(0,0,0,.12)}
+.copybar #copy-count{font-weight:600;flex:1}
+.wrap{padding-bottom:4px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.card.best{border-color:var(--good);box-shadow:inset 4px 0 0 var(--good)}
+.card.good{box-shadow:inset 4px 0 0 var(--warn)}
+.card.sold{opacity:.6}
+.head{display:flex;flex-wrap:wrap;gap:8px 12px;align-items:baseline}
+.wc{font-family:var(--f-display);font-weight:800;font-size:22px;letter-spacing:.01em}
+.wc small{display:block;font-family:var(--f-body);font-weight:500;font-size:13px;color:var(--muted);letter-spacing:0}
+.head{align-items:center;flex-wrap:nowrap}
+.wc{min-width:0;flex:1}
+.verdict{margin-left:0;flex:none}
+.pick{flex:none}
+.verdict{margin-left:auto;font:700 13px var(--f-body);padding:4px 10px;border-radius:999px;background:var(--bad-bg);color:var(--bad);white-space:nowrap}
+.verdict.best{background:var(--good-bg);color:var(--good)}
+.verdict.good{background:var(--warn-bg);color:var(--warn)}
+.verdict.possible{background:var(--pm-bg);color:var(--pm)}
+.chip.possible{background:var(--pm-bg);color:var(--pm)}
+.why{font-size:14px;margin:0}
+.why b{font-weight:600}
+.gridwrap{overflow-x:auto}
+table{border-collapse:separate;border-spacing:2px;width:100%;table-layout:fixed;min-width:300px;font-variant-numeric:tabular-nums}
+col.whoc{width:44px}
+th{font:700 11px var(--f-display);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:2px 0;text-align:center}
+th.we{color:var(--leave)}
+td{text-align:center;padding:0}
+td.who{text-align:left;font-size:12px;font-weight:600;color:var(--muted);white-space:nowrap;padding-right:4px;width:1%}
+td.who b{display:block;font-family:var(--f-mono);font-size:13px;color:var(--ink)}
+td.who{font-size:11px}
+.cell{display:block;font:600 11.5px var(--f-mono);letter-spacing:-.02em;padding:6px 0;overflow:hidden;border-radius:7px;background:var(--bad-bg);color:var(--ink)}
+.cell.am{background:var(--am-bg);color:var(--am)}
+.cell.pm{background:var(--pm-bg);color:var(--pm)}
+.cell.off{background:var(--off-bg);color:var(--off)}
+.cell.leave{background:var(--leave-bg);color:var(--leave)}
+.cell.listed{outline:2px solid var(--accent);outline-offset:1px}
+.cell.away{outline:2px dashed var(--pm);outline-offset:1px}
+.cell.win{box-shadow:inset 0 0 0 2px var(--good)}
+.cell.worse{box-shadow:inset 0 0 0 2px var(--leave)}
+.awayrow{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.hidnote{margin:0;font-size:13px;color:var(--muted)}
+.cell.kindiff{text-decoration:underline wavy var(--leave);text-underline-offset:3px}
+.blpline{margin:0;font-size:13px;color:var(--muted)}
+.blptag{display:inline-block;font-weight:700;font-size:12px;padding:2px 8px;border-radius:999px;margin-right:4px}
+.blpline.ok .blptag{background:var(--good-bg);color:var(--good)}
+.blpline.bad .blptag,.blpline.mf .blptag{background:var(--leave-bg);color:var(--leave)}
+.partbox{background:var(--good-bg);color:var(--ink);border:1.5px solid var(--good);border-radius:10px;padding:9px 12px;font-size:14px;line-height:1.45}
+.partbox b{display:block;color:var(--good);font-family:var(--f-display);font-weight:800;font-size:16px;letter-spacing:.02em}
+.card.part{border-color:var(--good);box-shadow:inset 4px 0 0 var(--good)}
+.chip.mism{background:var(--leave-bg);color:var(--leave)}
+.foot{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.copied{font-size:13px;color:var(--good);font-weight:600}
+.empty{color:var(--muted);text-align:center;padding:24px}
+details summary{cursor:pointer;font-weight:600;color:var(--muted);font-size:14px}
+@media (prefers-reduced-motion:no-preference){.card{transition:box-shadow .2s}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Link Swap Matcher</h1>
+    <p class="lede">Paste a swap post and see which weeks on offer line up with your own link: their AM week for your PM week, and whether your days off match theirs.</p>
+  </header>
+
+  <section class="panel" aria-labelledby="me-h">
+    <div class="label" id="me-h">Your roster and link</div>
+    <div class="row">
+      <span class="btn primary filebtn">Upload roster PDF<input type="file" id="roster-pdf" accept=".pdf,application/pdf"></span>
+      <span class="btn filebtn">Use my app backup<input type="file" id="backup" accept=".json,application/json"></span>
+    </div>
+    <p class="note" id="roster-note" style="margin:0"></p>
+    <div class="row">
+      <label class="field"><span>My link</span><input type="number" id="my-link" min="1" max="999" inputmode="numeric"></label>
+      <label class="field"><span>for the week starting (Mon)</span><input type="date" id="my-wc"></label>
+    </div>
+    <div class="example" id="example-note" hidden>Showing an example link. Put in your own link and week to see your real matches.</div>
+  </section>
+
+  <section class="panel" aria-labelledby="post-h">
+    <div class="label" id="post-h">The swap post</div>
+    <textarea id="post" spellcheck="false" aria-label="Paste the swap post here"></textarea>
+    <p class="note" style="margin:0">Paste a whole post as it is. Each week needs a date on its line; links can be written <b>Link 365</b>, <b>L365</b> or <b>#365</b>, and dates <b>22/02</b>, <b>22.2.27</b> or <b>22nd Feb</b>. Days off are read from the roster.</p>
+    <div class="awayrow" id="awayrow">
+      <span class="field" style="flex-direction:row;align-items:center;gap:8px"><span>Shifts I want to swap away:</span></span>
+      <label class="check"><input type="checkbox" id="away-pm" checked> PM</label>
+      <label class="check"><input type="checkbox" id="away-am3" checked> AM3 (09:01–12:00)</label>
+      <label class="check"><input type="checkbox" id="only-away" checked> Only show weeks where I have these</label>
+    </div>
+    <div class="row" style="align-items:center">
+      <div class="seg" role="radiogroup" aria-label="What you want">
+        <label><input type="radio" name="want" value="am" id="want-am" checked>I want their AM, giving my PM</label>
+        <label><input type="radio" name="want" value="pm" id="want-pm">I want their PM, giving my AM</label>
+      </div>
+      <label class="check"><input type="checkbox" id="show-sold"> Show sold</label>
+      <label class="check"><input type="checkbox" id="best-first"> Best matches first</label>
+      <label class="check"><input type="checkbox" id="hide-mism"> Hide BLP/SLP mismatches (keeps part-week swaps)</label>
+    </div>
+  </section>
+
+  <section aria-live="polite" style="display:flex;flex-direction:column;gap:12px">
+    <p class="dirnote" id="dir-note" hidden></p>
+    <div class="skipped" id="skipped" hidden></div>
+    <div class="summary" id="summary"></div>
+    <p class="hidnote" id="hidnote" hidden></p>
+    <div class="selrow" id="selrow" hidden>
+      <button class="btn" type="button" id="sel-matches">Tick all matches</button>
+      <button class="btn" type="button" id="sel-clear">Clear ticks</button>
+    </div>
+    <div class="cards" id="cards"></div>
+  </section>
+
+  <div class="copybar" id="copybar" hidden>
+    <span id="copy-count"></span>
+    <button class="btn primary" type="button" id="copy-sel">Copy selected</button>
+    <span class="copied" id="copy-done" hidden>Copied</span>
+  </div>
+
+  <details class="panel">
+    <summary>How matches are worked out</summary>
+    <p class="note">Each line with a date is one week: the date is the Monday it starts, the link number is theirs, and their days off come from the roster (any days named in the post are outlined). If the post says something like “my AMs for your PMs” or “PMs wanted”, the direction is set for you; change it with the buttons if it guessed wrong. Your link for that week is counted on from the link and week you entered, one link a week, wrapping round the roster. A shift starting before 12:00 (or AM1–3, AFA) counts as AM; 12:00 or later (or PM1–3, AFP) counts as PM.</p>
+    <p class="note"><b>Day by day</b>: your PM and AFP days are better with any AM of theirs (AM3 included); your AM3 days are better with an early AM (AM1, AM2, AFA, or a start before 09:01); your early AMs are worse with their AM3 or PM. Better days have a green box on their row, worse days a red box, and the shifts you want rid of are outlined with a dashed line on yours. Tick PM and/or AM3 under “Shifts I want to swap away”; “Only show weeks where I have these” hides weeks where your link has none. <b>Best match</b>: some days better, none worse, same days off. <b>Good match</b>: your week is PM and you have the same number of days off. <b>Possible</b>: your week is PM but the days off differ. <b>BLP/SLP</b>: each card counts the BLP and SLP days on your link and theirs that week. Balanced means you'd keep the same number of each; a mismatch says how many you'd gain or lose, and days where you're both off but one is BLP and the other SLP are underlined. When the week doesn't balance, it checks the <b>part-week swap</b> rule: if both links have 2 days off (BLP or SLP) between Monday and Saturday you can swap Mon–Sat and keep your own Sunday; if both have 2 days off between Monday and Friday you can swap Mon–Fri and keep your own weekend. <b>Not a match</b>: your week is mostly AM already, or you're on leave or swapped that week. With your backup file loaded, your recorded swaps and leave are taken into account.</p>
+    <p class="note">Dates with no year are given the year that makes them a Monday, in order down the post. An uploaded roster PDF is read inside this page and remembered in this browser only; nothing is sent anywhere.</p>
+  </details>
+</div>
+
+<script>
+const BUILTIN_ROSTER={};  // no roster published with the app: each person uploads their own
+const BUILTIN_NAME='';
+const SAMPLE_POST="AMs for sale, my AMs for your PMs\n\n22/02 Link 365 (Wed / Thu)\n03/05 Link 375 (Mon / Sun)\n14/06 Link 381 (Wed / Thu)\n26/07 Link 387 (Mon / Tue)\n29/11 Link 405 (Wed / Thu)\n\nSOLD below\n04/01 Link 358 (Fri / Sat / Sun)";  // example; replaced by whatever is pasted
+const D3=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const DAYMAP={mon:0,tue:1,tues:1,wed:2,thu:3,thur:3,thurs:3,fri:4,sat:5,sun:6};
+const $=id=>document.getElementById(id);
+const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}},del(k){try{localStorage.removeItem(k);}catch(e){}}};
+
+let roster=BUILTIN_ROSTER, rosterName=BUILTIN_NAME, backup=null, picked=new Set(), lastList=[], lastWant='am'; // backup: {swaps,plannedLeave,days}
+
+function pad(n){return String(n).padStart(2,'0');}
+function ymd(d){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function parseYmd(s){const m=String(s||'').match(/^(\d{4})-(\d{2})-(\d{2})/);return m?new Date(+m[1],+m[2]-1,+m[3]):null;}
+function monday(d){const t=new Date(d);t.setHours(0,0,0,0);const w=t.getDay();t.setDate(t.getDate()+(w===0?-6:1-w));return t;}
+function addDays(d,n){const t=new Date(d);t.setDate(t.getDate()+n);return t;}
+function ddmm(d){return pad(d.getDate())+'/'+pad(d.getMonth()+1);}
+function size(){const ks=Object.keys(roster||{}).map(Number).filter(k=>k>0);return ks.length?Math.max(...ks):440;}
+function linkFor(wc,anchorLink,anchorWc){const diff=Math.round((wc-anchorWc)/(7*864e5)),n=size();return ((anchorLink-1+diff)%n+n)%n+1;}
+
+// One roster cell → {label, kind: am|pm|off|leave|other}
+function classify(raw){
+  const v=String(raw||'').trim(), u=v.toUpperCase();
+  if(!v) return {label:'—',kind:'other'};
+  if(u==='BLP'||u==='SLP'||u==='RDO') return {label:u,kind:'off'};
+  if(/^(AM[123]|AFA)$/.test(u)) return {label:u,kind:'am',am3:u==='AM3'};
+  if(/^(PM[123]|AFP)$/.test(u)) return {label:u,kind:'pm'};
+  const t=v.match(/^(\d{1,2}):(\d{2})/);
+  if(t){const m=+t[1]*60+ +t[2];return {label:pad(+t[1])+':'+t[2],kind:m<720?'am':'pm',am3:m>540&&m<720};}
+  return {label:u.slice(0,6),kind:'other'};
+}
+
+// ── Roster PDF readers (the same ones the Shift Roster app uses) ──
+const PDFJS_BASE='https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+let pdfLoading=null;
+function loadPdfJs(){
+  if(window.pdfjsLib&&window.pdfjsWorker) return Promise.resolve(window.pdfjsLib);
+  if(pdfLoading) return pdfLoading;
+  const add=src=>new Promise((res,rej)=>{const s=document.createElement('script');s.src=src;s.onload=res;s.onerror=()=>rej(new Error('The PDF reader could not load. Check your connection and try again.'));document.head.appendChild(s);});
+  // Loading the worker as a plain script lets pdf.js read the file inside this page
+  pdfLoading=add(PDFJS_BASE+'pdf.min.js').then(()=>add(PDFJS_BASE+'pdf.worker.min.js')).then(()=>{window.pdfjsLib.GlobalWorkerOptions.workerSrc=PDFJS_BASE+'pdf.worker.min.js';return window.pdfjsLib;});
+  pdfLoading.catch(()=>{pdfLoading=null;});
+  return pdfLoading;
+}
+async function linkDiagramFromTextLayer(doc){
+  const out=[];
+  for(let pn=1;pn<=doc.numPages;pn++){
+    const tc=await (await doc.getPage(pn)).getTextContent();
+    const items=tc.items.filter(function(it){ return it.str&&it.str.length; });
+    if(!items.length) continue;
+    // Character width: the most common width per character across the page
+    const ws={}; items.forEach(function(it){ if(it.width>0&&it.str.length){ const w=Math.round(it.width/it.str.length*100)/100; ws[w]=(ws[w]||0)+it.str.length; } });
+    const cw=+Object.keys(ws).sort(function(a,b){ return ws[b]-ws[a]; })[0]||6;
+    // The printout is often rotated (landscape): measure along the text direction and down the page
+    const t0=items[0].transform, n=Math.hypot(t0[0],t0[1])||1, m2=Math.hypot(t0[2],t0[3])||1;
+    const dir=[t0[0]/n,t0[1]/n], down=[-t0[2]/m2,-t0[3]/m2];
+    const along=function(it){ return it.transform[4]*dir[0]+it.transform[5]*dir[1]; };
+    const across=function(it){ return it.transform[4]*down[0]+it.transform[5]*down[1]; };
+    const minX=Math.min.apply(null,items.map(along));
+    const rows={};
+    items.forEach(function(it){ const y=Math.round(across(it)*2)/2; (rows[y]=rows[y]||[]).push(it); });
+    Object.keys(rows).map(Number).sort(function(a,b){ return a-b; }).forEach(function(y){
+      const L=[];
+      rows[y].forEach(function(it){
+        const col=Math.round((along(it)-minX)/cw);
+        for(let k=0;k<it.str.length;k++) if(it.str[k]!==' '||L[col+k]===undefined) L[col+k]=it.str[k];
+      });
+      out.push(Array.from(L,function(x){ return x||' '; }).join('').replace(/\s+$/,''));
+    });
+  }
+  const text=out.join('\n');
+  return /MONDAY/.test(text)&&/SUNDAY/.test(text)?text:null;
+}
+
+// Late-2026 roster layout: a table with a row per link and a column per day; each cell is
+// "JOB HH:MM - HH:MM (length)" or a code (BLP, SLP, AM1…). Proportional font, so cells are
+// placed by the x position of the day headings rather than by character columns.
+async function readTableRosterPDF(buffer){
+  const pdfjsLib=await loadPdfJs();
+  const doc=await pdfjsLib.getDocument({data:new Uint8Array(buffer),disableFontFace:true}).promise;
+  const DAYN=['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY'];
+  const roster={}, lines=[];
+  let cols=null;
+  for(let pn=1;pn<=doc.numPages;pn++){
+    const tc=await (await doc.getPage(pn)).getTextContent();
+    const items=tc.items.filter(function(it){ return it.str&&it.str.trim(); }).map(function(it){
+      return {s:it.str.trim(),x:it.transform[4],y:Math.round(it.transform[5]*2)/2,f:Math.round(Math.hypot(it.transform[0],it.transform[1])*10)/10};
+    });
+    if(!items.length) continue;
+    // Body text size: the most common one (ignores the big DRAFT watermark letters)
+    const fs={}; items.forEach(function(it){ fs[it.f]=(fs[it.f]||0)+1; });
+    const body=+Object.keys(fs).sort(function(a,b){ return fs[b]-fs[a]; })[0];
+    const rows={};
+    items.forEach(function(it){ if(Math.abs(it.f-body)<=body*0.3) (rows[it.y]=rows[it.y]||[]).push(it); });
+    Object.keys(rows).map(Number).sort(function(a,b){ return b-a; }).forEach(function(y){
+      const row=rows[y].sort(function(a,b){ return a.x-b.x; });
+      const heads=DAYN.map(function(d){ const h=row.find(function(it){ return it.s.toUpperCase()===d; }); return h?h.x:null; });
+      if(heads.every(function(x){ return x!=null; })){ cols=heads; return; }
+      if(!cols) return;
+      const before=row.filter(function(it){ return it.x<cols[0]-2; });
+      const num=before.filter(function(it){ return /^\d{1,3}$/.test(it.s); }).pop();
+      if(!num) return;
+      const link=parseInt(num.s);
+      if(link<1||link>999) return;
+      const cells=['','','','','','',''];
+      row.forEach(function(it){
+        if(it.x<cols[0]-2) return;
+        let d=0; for(let k=0;k<7;k++) if(it.x>=cols[k]-2) d=k;
+        cells[d]=(cells[d]?cells[d]+' ':'')+it.s;
+      });
+      lines.push(link+'\t'+cells.join('\t'));
+      roster[link]=cells.map(function(c){
+        const m=c.match(/^(\S+)\s+(\d{1,2}:\d{2})\s*-\s*\d{1,2}:\d{2}/);
+        if(m) return m[2]+'|'+m[1];
+        const t=c.match(/^(\d{1,2}:\d{2})/);
+        if(t) return t[1];
+        return (c.split(/\s+/)[0]||'').toUpperCase();
+      });
+    });
+  }
+  return {roster:roster,text:lines.join('\n')};
+}
+
+// Reads links from the decoded printout. Each day becomes "HH:MM|JOB", a code (BLP, AM1…),
+// or EX filled in from the extra rows printed under the link.
+function parseLinkDiagram(text){
+  const DAYN=['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY'];
+  const isCode=function(t){ return /^(BLP|SLP|AFA|AFP|EX|AM[123]|PM[123])$/.test(t); };
+  const isTime=function(t){ return /^\d{1,2}:\d{2}$/.test(t); };
+  const toks={}; let dayCols=null, cur=null;
+  text.split('\n').forEach(function(line){
+    if(/MONDAY/.test(line)&&/SUNDAY/.test(line)){ dayCols=DAYN.map(function(d){ return line.indexOf(d); }); return; }
+    if(!dayCols||/^\s*-{10,}\s*$/.test(line)||/QUEENSLAND|PAGE\s+\d|PRINTED BY|^\s*-+(\s+-+)+\s*$/.test(line)) return;
+    const lm=line.match(/^\s{0,4}(\d{1,3})\s/);
+    if(lm){ cur=parseInt(lm[1]); if(!toks[cur]) toks[cur]=[[],[],[],[],[],[],[]]; }
+    if(cur==null) return;
+    const re=/\S+/g; let mt;
+    while((mt=re.exec(line))){
+      if(mt.index<dayCols[0]-2) continue; // occupant name columns
+      let d=0; for(let k=0;k<7;k++) if(mt.index>=dayCols[k]-2) d=k;
+      toks[cur][d].push(mt[0]);
+    }
+  });
+  const roster={};
+  Object.keys(toks).forEach(function(link){
+    if(link<1||link>999) return;
+    roster[link]=toks[link].map(function(list){
+      const entries=[];
+      list.forEach(function(t){
+        const last=entries[entries.length-1];
+        if(isTime(t)||isCode(t)) entries.push({v:t,job:''});
+        else if(last&&isTime(last.v)&&!last.job) last.job=t;
+        else entries.push({v:t,job:''});
+      });
+      let e=entries[0]||null;
+      if(e&&e.v==='EX'){ const later=entries.slice(1).find(function(x){ return x.v!=='EX'; }); if(later) e=later; }
+      return e?(e.job?e.v+'|'+e.job:e.v):'';
+    });
+  });
+  return roster;
+}
+
+
+async function readRosterPdf(buffer){
+  const tp=await readTableRosterPDF(buffer.slice(0));
+  if(tp&&Object.keys(tp.roster).length) return tp.roster;
+  const lib=await loadPdfJs();
+  const doc=await lib.getDocument({data:new Uint8Array(buffer.slice(0)),disableFontFace:true}).promise;
+  const text=await linkDiagramFromTextLayer(doc);
+  const r=text?parseLinkDiagram(text):{};
+  if(Object.keys(r).length) return r;
+  throw new Error('No links found in that PDF. Make sure it\'s the Link/Diagram roster from the rostering office, not a photo or screenshot.');
+}
+
+// Reads any swap post: one week per line, in whatever format people use, e.g.
+// "22/02 Link 365 (Wed / Thu)", "WC 22.2.27 L365 BLP Wed Thu", "Link 365 - 22nd Feb", "*SOLD* 04/01 #358"
+const MONTHS={jan:1,feb:2,mar:3,apr:4,may:5,jun:6,jul:7,aug:8,sep:9,sept:9,oct:10,nov:11,dec:12};
+function findDate(s){
+  let m=s.match(/\b(\d{1,2})\s*[\/.\-]\s*(\d{1,2})(?:\s*[\/.\-]\s*(\d{2,4}))?\b/);
+  if(m&&+m[2]>=1&&+m[2]<=12&&+m[1]>=1&&+m[1]<=31) return {dd:+m[1],mm:+m[2],yr:m[3]?+m[3]:null,txt:m[0]};
+  m=s.match(/\b(\d{1,2})(?:st|nd|rd|th)?\s*(?:of\s+)?(jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\.?(?:\s*,?\s*(\d{4}))?/i);
+  if(m) return {dd:+m[1],mm:MONTHS[m[2].toLowerCase()],yr:m[3]?+m[3]:null,txt:m[0]};
+  m=s.match(/\b(jan|feb|mar|apr|may|jun|jul|aug|sept?|oct|nov|dec)[a-z]*\.?\s*(\d{1,2})(?:st|nd|rd|th)?(?:\s*,?\s*(\d{4}))?\b/i);
+  if(m) return {dd:+m[2],mm:MONTHS[m[1].toLowerCase()],yr:m[3]?+m[3]:null,txt:m[0]};
+  return null;
+}
+function findLink(s){
+  const n=size();
+  let m=s.match(/\b(?:links?|lnk|lk|l)\s*(?:no\.?|number|#|:|-)?\s*(\d{1,3})\b/i)||s.match(/#\s*(\d{1,3})\b/);
+  if(m&&+m[1]>=1&&+m[1]<=n) return +m[1];
+  // Otherwise a lone number that isn't a time or part of the date
+  const rest=s.replace(/\d{1,2}:\d{2}/g,' ').replace(/\(\s*\d{1,2}:\d{2}\s*\)/g,' ');
+  const nums=(rest.match(/(?:^|[^\d:.\/\-])(\d{1,3})(?![\d:\/.\-])/g)||[]).map(x=>+x.replace(/\D/g,'')).filter(x=>x>=1&&x<=n);
+  return nums.length===1?nums[0]:null;
+}
+function findDays(s){
+  const out=[]; const re=/\b(mon|tue|tues|wed|weds|thu|thur|thurs|fri|sat|sun)(?:day|nesday|sday|urday|rsday)?s?\b/gi; let m;
+  while((m=re.exec(s))){ const k=m[1].toLowerCase(); const d=DAYMAP[k]!=null?DAYMAP[k]:DAYMAP[k.slice(0,3)]; if(d!=null&&!out.includes(d)) out.push(d); }
+  return out.sort((a,b)=>a-b);
+}
+// Which way the post goes: "my AMs for your PMs" / "AMs for sale" means they give AMs
+function postDirection(text){
+  const s=String(text||'').toLowerCase();
+  const giveAM=/\b(my|have|selling|offering)\s+(an?\s+)?ams?\b|\bams?\s+(for|up for)\s+(sale|swap|grabs)|\b(want|wanting|need|after|looking for|chasing)\s+(an?\s+|some\s+)?pms?\b|\bams?\s+for\s+(your\s+)?pms?\b/.test(s);
+  const givePM=/\b(my|have|selling|offering)\s+(an?\s+)?pms?\b|\bpms?\s+(for|up for)\s+(sale|swap|grabs)|\b(want|wanting|need|after|looking for|chasing)\s+(an?\s+|some\s+)?ams?\b|\bpms?\s+for\s+(your\s+)?ams?\b/.test(s);
+  return giveAM&&!givePM?'am':givePM&&!giveAM?'pm':null;
+}
+function parsePost(text){
+  const out=[], skipped=[]; let prev=addDays(monday(new Date()),-7*26), soldSection=false;
+  const thisYear=new Date().getFullYear();
+  String(text||'').split(/\r?\n|;|\s\|\s/).forEach(raw=>{
+    const line=raw.trim(); if(!line) return;
+    const d=findDate(line);
+    if(!d){
+      if(/\bsold\b|\bgone\b|\btaken\b/i.test(line)&&!/\d/.test(line)) soldSection=true;
+      else if(findLink(line)&&/\blink|\bl\s*\d|#\d/i.test(line)) skipped.push({line,why:'no date'});
+      return;
+    }
+    const dd=d.dd, mm=d.mm; let yr=d.yr; if(yr&&yr<100) yr+=2000;
+    const tries=yr?[yr,yr+1,yr-1]:[thisYear-1,thisYear,thisYear+1,thisYear+2,thisYear+3];
+    let wc=null, notMonday=false;
+    for(const y of tries){const x=new Date(y,mm-1,dd);if(x.getMonth()!==mm-1) continue;if(x.getDay()===1&&x>=prev){wc=x;break;}}
+    if(!wc){ for(const y of tries){const x=new Date(y,mm-1,dd);if(x.getMonth()===mm-1&&x>=prev){wc=monday(x);notMonday=true;break;}} }
+    if(!wc){ skipped.push({line,why:'date not understood'}); return; }
+    prev=wc;
+    // A weekday written just before the date ("Mon 21/6") is part of the date, not a day off
+    const rest=line.replace(new RegExp('(?:\\bmon(?:day)?\\b[\\s,]*)?'+d.txt.replace(/[.*+?^${}()|[\]\\\/]/g,'\\$&'),'i'),' ');
+    const link=findLink(rest);
+    out.push({wc,link,offs:findDays(rest),sold:soldSection||/\bsold\b|\bgone\b|\btaken\b|~~/i.test(line),notMonday,line});
+  });
+  return {items:out.sort((a,b)=>a.wc-b.wc),skipped};
+}
+
+// Your day as worked: leave and swaps from the backup file when loaded, otherwise the roster
+function myWeek(wc,anchorLink,anchorWc){
+  const wcs=ymd(wc);
+  const sw=backup&&(backup.swaps||[]).find(s=>s.wc===wcs);
+  let link=linkFor(wc,anchorLink,anchorWc), note='';
+  if(sw&&sw.scope==='week'&&sw.linkReceived){ link=+sw.linkReceived; note='swapped'; }
+  else if(sw) note='swapped';
+  const days=[];
+  for(let i=0;i<7;i++){
+    const ds=ymd(addDays(wc,i));
+    let c=classify((roster[String(link)]||[])[i]);
+    if(backup){
+      const lv=(backup.plannedLeave||[]).find(l=>ds>=l.start&&ds<=(l.end||l.start));
+      const ov=(backup.days||{})[ds];
+      if(lv) c={label:String(lv.type||'Leave').toUpperCase(),kind:'leave'};
+      else if(ov&&['al','lsl','sick','family','lwop','repro','mbo','cbo'].includes(ov.type)) c={label:({sick:'SL',family:'FL'})[ov.type]||ov.type.toUpperCase(),kind:'leave'};
+      else if(ov&&(ov.type==='blp_kept'||ov.type==='rdo')) c={label:'BLP',kind:'off'};
+      else if(ov&&ov.start) c=classify(ov.start);
+    }
+    days.push(c);
+  }
+  return {link,days,note};
+}
+
+function judge(item,mine,want){
+  const theirs=item.link?(roster[String(item.link)]||[]).map(classify):[];
+  const give=want==='am'?'pm':'am', get=want==='am'?'am':'pm';
+  const count=(arr,k)=>arr.filter(c=>c.kind===k).length;
+  // Day by day: rank each shift by how much you want it. After AMs: PM/AFP 0, AM3 1 (or 2 if AM3 isn't
+  // ticked), early AM 2. A day is better when their shift ranks higher than yours (your AFP for their AM3 is better).
+  const myOff=mine.days.map((c,i)=>c.kind==='off'?i:-1).filter(i=>i>=0);
+  const theirOff=theirs.length?theirs.map((c,i)=>c.kind==='off'?i:-1).filter(i=>i>=0):item.offs;
+  const away=awaySet();
+  const rank=c=>{ if(c.kind==='pm'){ return want==='am'?(away.pm?0:2):2; } if(c.kind==='am'){ if(want==='pm') return 0; return c.am3&&away.am3?1:2; } return null; };
+  const giveIdx=mine.days.map((c,i)=>{const r=rank(c);return r!=null&&r<2?i:-1;}).filter(i=>i>=0);
+  const wins=[], worse=[];
+  for(let i=0;i<7;i++){ if(!theirs.length) break; const a=rank(mine.days[i]), b=rank(theirs[i]); if(a==null||b==null) continue; if(b>a) wins.push(i); else if(b<a) worse.push(i); }
+  const myGive=giveIdx.length, leave=count(mine.days,'leave');
+  const sameDays=myOff.length===theirOff.length&&myOff.every((d,i)=>d===theirOff[i]);
+  const sameCount=myOff.length===theirOff.length;
+  let level='no', verdict='Not a match', why='';
+  const awayWord=want==='am'?([away.pm?'PM':'',away.am3?'AM3':''].filter(Boolean).join(' or ')||'PM'):'AM';
+  const dayList=idx=>idx.map(i=>D3[i]+' '+mine.days[i].label+' → '+theirs[i].label).join(', ');
+  const offTxt=d=>d.length?d.map(i=>D3[i]).join('/'):'none';
+  if(mine.note==='swapped') why='You already have a swap recorded this week.';
+  else if(leave>=3) why='You are on leave for most of this week.';
+  else if(myGive===0) why='Your link '+mine.link+' has no '+awayWord+' shifts this week, so there\'s nothing to swap away.';
+  else if(!theirs.length){ level='possible'; verdict='Possible'; why='Your link '+mine.link+' has '+myGive+' '+awayWord+' shift'+(myGive>1?'s':'')+' to swap away.'; }
+  else if(!wins.length) why='None of your '+awayWord+' days get a better shift on their link '+item.link+'.';
+  else {
+    why='Better on '+wins.length+' day'+(wins.length>1?'s':'')+': '+dayList(wins)+'.';
+    if(worse.length) why+=' Worse on '+dayList(worse)+'.';
+    if(!worse.length&&sameDays){ level='best'; verdict='Best match'; why+=' Same days off: '+offTxt(myOff)+'.'; }
+    else if(!worse.length&&sameCount){ level='good'; verdict='Good match'; why+=' Same number of days off (yours '+offTxt(myOff)+', theirs '+offTxt(theirOff)+').'; }
+    else { level='possible'; verdict='Possible'; if(!sameCount) why+=' Days off differ: yours '+offTxt(myOff)+', theirs '+offTxt(theirOff)+'.'; }
+  }
+  if(!item.link) why+=' No link number was given, so only your week was checked.';
+  if(item.notMonday) why+=' (The date in the post isn\'t a Monday, so the week starting '+ddmm(item.wc)+' was used.)';
+  // BLP/SLP balance: what you'd hold after the swap compared with what you hold now
+  const lab=(arr,l)=>arr.filter(c=>c.label===l).length;
+  let blp=null;
+  if(theirs.length){
+    const m={blp:lab(mine.days,'BLP'),slp:lab(mine.days,'SLP')}, th={blp:lab(theirs,'BLP'),slp:lab(theirs,'SLP')};
+    const dB=th.blp-m.blp, dS=th.slp-m.slp, parts=[];
+    if(dB) parts.push((dB>0?'gain ':'lose ')+Math.abs(dB)+' BLP');
+    if(dS) parts.push((dS>0?'gain ':'lose ')+Math.abs(dS)+' SLP');
+    // Same day off on both links but a different kind (your BLP against their SLP)
+    const kindDiff=[]; for(let i=0;i<7;i++){ const a=mine.days[i].label, b=theirs[i].label; if((a==='BLP'||a==='SLP')&&(b==='BLP'||b==='SLP')&&a!==b) kindDiff.push(D3[i]+' (yours '+a+', theirs '+b+')'); }
+    // Part-week swap rule: Mon–Sat or Mon–Fri is allowed when both links have 2 days off (BLP or SLP) in those days
+    const spans=[{name:'Mon–Sat',days:[0,1,2,3,4,5],keep:'Sunday'},{name:'Mon–Fri',days:[0,1,2,3,4],keep:'weekend'}].map(s=>{
+      const isOff=c=>c&&(c.label==='BLP'||c.label==='SLP');
+      const a=s.days.filter(i=>isOff(mine.days[i])), b=s.days.filter(i=>isOff(theirs[i]));
+      return Object.assign(s,{mine:a,theirs:b,ok:a.length===2&&b.length===2,same:a.join()===b.join()});
+    });
+    const okSpans=spans.filter(s=>s.ok);
+    blp={ok:!dB&&!dS,mine:m,theirs:th,text:parts.length?'You would '+parts.join(' and ')+'.':'',kindDiff,spans,okSpans,myDays:mine.days,theirDays:theirs,mfOnly:!(!dB&&!dS)&&okSpans.length>0,part:okSpans.length?okSpans[0].name:''};
+  }
+  return {level,verdict,why,theirs,theirOff,myOff,blp,myGive,giveIdx,wins,worse};
+}
+
+function blpHtml(b,showPart){
+  if(!b) return '';
+  const fmt=x=>x.blp+' BLP · '+x.slp+' SLP';
+  const dl=(a,arr)=>a.map(i=>D3[i]+(arr&&arr[i]?' '+arr[i].label:'')).join(', ');
+  let mfTxt='';
+  let box='';
+  if(b.mfOnly&&showPart) box=b.okSpans.map(s=>'<div class="partbox"><b>✓ '+s.name+' swap OK</b> You both have 2 days off '+s.name+' (yours '+dl(s.mine,b.myDays)+'; theirs '+dl(s.theirs,b.theirDays)+(s.same?'; same days':'')+'), so you can swap '+s.name+' and keep your own '+s.keep+'.</div>').join('');
+  else if(!b.ok) mfTxt='<br>Part-week swap not possible. Days off Mon–Sat: yours '+b.spans[0].mine.length+', theirs '+b.spans[0].theirs.length+'. Days off Mon–Fri: yours '+b.spans[1].mine.length+', theirs '+b.spans[1].theirs.length+'. Both need 2.';
+  return '<p class="blpline '+(b.ok?'ok':b.mfOnly?'mf':'bad')+'"><span class="blptag">'+(b.ok?'BLP/SLP balanced ✓':'BLP/SLP mismatch ⚠')+'</span> Yours '+fmt(b.mine)+', theirs '+fmt(b.theirs)+'. '+b.text+
+    (b.kindDiff.length?' Different kind of day off on '+b.kindDiff.join(', ')+'.':'')+mfTxt+'</p>'+box;
+}
+function gridHtml(item,mine,res){
+  const other=(cells,i)=>{const a=mine.days[i]&&mine.days[i].label, b=res.theirs[i]&&res.theirs[i].label; return res.theirs.length&&(a==='BLP'||a==='SLP')&&(b==='BLP'||b==='SLP')&&a!==b;};
+  const row=(who,link,cells,offs,away,r)=>'<tr><td class="who">'+who+'<b>'+link+'</b></td>'+cells.map((c,i)=>'<td><span class="cell '+c.kind+(offs.includes(i)?' listed':'')+(away&&away.includes(i)?' away':'')+(r&&r.wins.includes(i)?' win':'')+(r&&r.worse.includes(i)?' worse':'')+(other(cells,i)?' kindiff':'')+'">'+c.label+'</span></td>').join('')+'</tr>';
+  return '<div class="gridwrap"><table><colgroup><col class="whoc">'+D3.map(()=>'<col>').join('')+'</colgroup><thead><tr><th></th>'+D3.map((d,i)=>'<th'+(i>=5?' class="we"':'')+'>'+d+'</th>').join('')+'</tr></thead><tbody>'+
+    row('Theirs',item.link||'?',res.theirs.length?res.theirs:D3.map(()=>({label:'?',kind:'other'})),item.offs,null,res)+
+    row('Yours',mine.link,mine.days,[],res.giveIdx)+'</tbody></table></div>';
+}
+
+function awaySet(){ return {pm:$('away-pm').checked,am3:$('away-am3').checked}; }
+function escapeHtml(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function autoDirection(){
+  const d=postDirection($('post').value), note=$('dir-note');
+  if(d){ (d==='am'?$('want-am'):$('want-pm')).checked=true; note.hidden=false; note.textContent=d==='am'?'This post offers AMs, so your PM weeks are being matched.':'This post offers PMs, so your AM weeks are being matched.'; }
+  else note.hidden=true;
+}
+function render(){
+  const want=$('want-pm').checked?'pm':'am';
+  const anchorLink=parseInt($('my-link').value,10), anchorWc=parseYmd($('my-wc').value);
+  const cards=$('cards'), sum=$('summary');
+  $('roster-note').innerHTML='Using <b>'+escapeHtml(rosterName)+'</b>, '+size()+' links.'+(backup?' Your recorded swaps and leave are included.':'');
+  if(!Object.keys(roster).length){ $('roster-note').innerHTML='<b>Start here:</b> tap <b>Upload roster PDF</b> and pick the Link/Diagram roster from the rostering office. It is read on this phone and remembered here; it isn\'t sent anywhere.'; sum.innerHTML=''; $('hidnote').hidden=true; cards.innerHTML='<div class="empty">Upload your roster PDF to see which weeks match.</div>'; return; }
+  if(!anchorLink||!anchorWc){ sum.innerHTML=''; cards.innerHTML='<div class="empty">Enter your link and the Monday it applies to.</div>'; return; }
+  const aw=monday(anchorWc);
+  const parsed=parsePost($('post').value), items=parsed.items;
+  const sk=$('skipped');
+  sk.hidden=!parsed.skipped.length;
+  sk.innerHTML=parsed.skipped.length?'<b>'+parsed.skipped.length+' line'+(parsed.skipped.length>1?'s':'')+' couldn\'t be read</b> (no date the page understands). Add the week starting date to check '+(parsed.skipped.length>1?'them':'it')+':<ul>'+parsed.skipped.map(s=>'<li>'+escapeHtml(s.line)+'</li>').join('')+'</ul>':'';
+  if(!items.length){ sum.innerHTML=''; cards.innerHTML='<div class="empty">No weeks found yet. Each week needs a date on its line, like <b>22/02 Link 365</b>, <b>WC 22.2 L365</b> or <b>Link 365 – 22nd Feb</b>.</div>'; return; }
+  let all=items.map(it=>{const mine=myWeek(it.wc,anchorLink,aw);return {it,mine,res:judge(it,mine,want)};});
+  $('awayrow').hidden=want!=='am';
+  const hid=$('only-away').checked?all.filter(x=>!x.it.sold&&x.res.myGive===0).length:0;
+  if($('only-away').checked) all=all.filter(x=>x.it.sold||x.res.myGive>0);
+  const aw2=awaySet(), word=want==='am'?([aw2.pm?'PM':'',aw2.am3?'AM3':''].filter(Boolean).join(' or ')||'PM'):'AM';
+  $('hidnote').hidden=!hid; $('hidnote').textContent=hid+' week'+(hid===1?'':'s')+' hidden because your link has no '+word+' shifts then. Untick “Only show weeks where I have these” to see '+(hid===1?'it':'them')+'.';
+  const open=all.filter(x=>!x.it.sold);
+  const n=k=>open.filter(x=>x.res.level===k).length;
+  sum.innerHTML='<span class="chip best">'+n('best')+' best</span><span class="chip good">'+n('good')+' good</span><span class="chip possible">'+n('possible')+' possible</span><span class="chip">'+(open.length-n('best')-n('good')-n('possible'))+' no match</span><span class="chip">'+(all.length-open.length)+' sold</span><span class="chip mism">'+open.filter(x=>x.res.blp&&!x.res.blp.ok&&!x.res.blp.mfOnly).length+' BLP/SLP mismatch</span><span class="chip best">'+open.filter(x=>x.res.blp&&x.res.blp.mfOnly).length+' part-week swap</span>';
+  let list=$('show-sold').checked?all:open;
+  if($('hide-mism').checked) list=list.filter(x=>!(x.res.blp&&!x.res.blp.ok&&!x.res.blp.mfOnly));
+  if($('best-first').checked){const rank={best:0,good:1,possible:2,no:3};list=[...list].sort((a,b)=>rank[a.res.level]-rank[b.res.level]||a.it.wc-b.it.wc);}
+  cards.innerHTML='';
+  list.forEach(x=>{
+    const {it,mine,res}=x;
+    const el=document.createElement('article');
+    el.className='card '+(res.level==='best'?'best':res.level==='good'?'good':'')+(res.blp&&res.blp.mfOnly&&res.level!=='no'?' part':'')+(it.sold?' sold':'');
+    const key=ymd(it.wc)+'|'+(it.link||'');
+    el.innerHTML='<div class="head">'+(it.sold?'':'<label class="pick"><input type="checkbox" data-key="'+key+'"'+(picked.has(key)?' checked':'')+' aria-label="Tick W/C '+ddmm(it.wc)+'"></label>')+'<span class="wc">W/C '+ddmm(it.wc)+'<small>Mon '+it.wc.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})+(it.link?' · Link '+it.link:'')+'</small></span>'+
+      '<span class="verdict '+(res.level==='no'?'':res.level)+'">'+(it.sold?'Sold · ':'')+res.verdict+'</span></div>'+
+      '<p class="why">'+res.why+'</p>'+blpHtml(res.blp,res.level!=='no')+gridHtml(it,mine,res)+
+      (res.level!=='no'&&!it.sold?'<div class="foot"><button class="btn" type="button">Copy a reply</button><span class="copied" hidden>Copied</span></div>':'');
+    const cb=el.querySelector('input[data-key]');
+    if(cb) cb.addEventListener('change',()=>{cb.checked?picked.add(key):picked.delete(key);updateCopyBar();});
+    const b=el.querySelector('button');
+    if(b) b.addEventListener('click',()=>{
+      const offTxt=res.myOff.length?res.myOff.map(i=>D3[i]).join(' / '):'none';
+      const msg='Hi, I\'m interested in W/C '+ddmm(it.wc)+(it.link?' Link '+it.link:'')+'. I can swap you my Link '+mine.link+' ('+(want==='am'?'PMs':'AMs')+'), days off '+offTxt+'.';
+      const done=()=>{const c=el.querySelector('.copied');c.hidden=false;setTimeout(()=>c.hidden=true,1800);};
+      const fallback=()=>{const t=document.createElement('textarea');t.value=msg;document.body.appendChild(t);t.select();try{document.execCommand('copy');done();}catch(e){}t.remove();};
+      if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(msg).then(done,fallback); else fallback();
+    });
+    cards.appendChild(el);
+  });
+  if(!list.length) cards.innerHTML='<div class="empty">Every week in this post is sold. Tick “Show sold” to see them.</div>';
+  lastList=all.filter(x=>!x.it.sold); lastWant=want;
+  $('selrow').hidden=!lastList.length;
+  const keys=new Set(lastList.map(x=>ymd(x.it.wc)+'|'+(x.it.link||'')));
+  [...picked].forEach(k=>{if(!keys.has(k)) picked.delete(k);});
+  updateCopyBar();
+}
+function updateCopyBar(){
+  const n=picked.size;
+  $('copybar').hidden=!n;
+  $('copy-count').textContent=n+' week'+(n===1?'':'s')+' ticked';
+}
+function copySelected(){
+  const rows=lastList.filter(x=>picked.has(ymd(x.it.wc)+'|'+(x.it.link||'')));
+  if(!rows.length) return;
+  const giving=lastWant==='am'?'PMs':'AMs', getting=lastWant==='am'?'AMs':'PMs';
+  const lines=rows.map(x=>{const off=x.res.myOff.length?x.res.myOff.map(i=>D3[i]).join('/'):'none';
+    return '• W/C '+ddmm(x.it.wc)+(x.res.blp&&x.res.blp.mfOnly?' ('+x.res.blp.part+')':'')+(x.it.link?' – your Link '+x.it.link:'')+' for my Link '+x.mine.link+' (my days off '+off+(x.res.blp&&x.res.blp.ok?', BLP/SLP balanced':'')+')';});
+  const msg='Hi, I\'m interested in swapping my '+giving+' for your '+getting+' on these weeks:\n'+lines.join('\n');
+  const done=()=>{const c=$('copy-done');c.hidden=false;setTimeout(()=>c.hidden=true,1800);};
+  const fallback=()=>{const t=document.createElement('textarea');t.value=msg;document.body.appendChild(t);t.select();try{document.execCommand('copy');done();}catch(e){}t.remove();};
+  if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(msg).then(done,fallback); else fallback();
+}
+
+function save(){ store.set('lsm_link',$('my-link').value); store.set('lsm_wc',$('my-wc').value); store.set('lsm_post',$('post').value); store.set('lsm_want',$('want-pm').checked?'pm':'am'); }
+function boot(){
+  const l=store.get('lsm_link'), w=store.get('lsm_wc');
+  const example=!l||!w;
+  $('my-link').value=l||'';
+  $('my-wc').value=w||ymd(monday(new Date()));
+  $('example-note').hidden=true;
+  $('post').value=store.get('lsm_post')||SAMPLE_POST;
+  if(store.get('lsm_want')==='pm') $('want-pm').checked=true;
+  try{const u=JSON.parse(store.get('lsm_roster')||'null');if(u&&u.roster){roster=u.roster;rosterName=u.name||'your roster';}}catch(e){}
+  try{const b=JSON.parse(store.get('lsm_backup')||'null');if(b) applyBackup(b,false);}catch(e){}
+  autoDirection();
+  ['my-link','my-wc'].forEach(id=>$(id).addEventListener('input',()=>{$('example-note').hidden=true;save();render();}));
+  $('post').addEventListener('input',()=>{autoDirection();save();render();});
+  $('sel-matches').addEventListener('click',()=>{lastList.filter(x=>x.res.level!=='no').forEach(x=>picked.add(ymd(x.it.wc)+'|'+(x.it.link||'')));render();});
+  $('sel-clear').addEventListener('click',()=>{picked.clear();render();});
+  $('copy-sel').addEventListener('click',copySelected);
+  $('roster-pdf').addEventListener('change',async e=>{
+    const f=e.target.files[0]; if(!f) return; e.target.value='';
+    $('roster-note').textContent='Reading '+f.name+'…';
+    try{
+      const r=await readRosterPdf(await f.arrayBuffer());
+      roster=r; rosterName=f.name.replace(/\.pdf$/i,''); backup=null;
+      store.set('lsm_roster',JSON.stringify({name:rosterName,roster:r})); store.del('lsm_backup');
+      render();
+    }catch(err){ $('roster-note').textContent=(err&&err.message)||'That PDF could not be read.'; }
+  });
+  ['away-pm','away-am3','only-away'].forEach(id=>{const v=store.get('lsm_'+id);if(v!=null) $(id).checked=v==='1'; $(id).addEventListener('input',()=>{store.set('lsm_'+id,$(id).checked?'1':'0');render();});});
+  ['want-am','want-pm','show-sold','best-first','hide-mism'].forEach(id=>$(id).addEventListener('input',()=>{$('dir-note').hidden=true;save();render();}));
+  $('backup').addEventListener('change',e=>{
+    const f=e.target.files[0]; if(!f) return;
+    const r=new FileReader();
+    r.onload=()=>{try{const p=JSON.parse(r.result);applyBackup(p,true);}catch(err){$('roster-note').textContent='That file isn\'t a Shift Roster backup. Export one from the app: Settings, Backup & Restore, Export Backup.';}};
+    r.readAsText(f); e.target.value='';
+  });
+  render();
+}
+function applyBackup(p,fresh){
+  if(!p||!p.roster||!Object.keys(p.roster).length){ $('roster-note').textContent='That backup has no roster in it. Import your roster in the app first, then export the backup again.'; return; }
+  roster=p.roster; rosterName='your backup file';
+  backup={swaps:p.swaps||[],plannedLeave:p.plannedLeave||[],days:p.days||{}};
+  if(fresh){
+    store.del('lsm_roster');
+    store.set('lsm_backup',JSON.stringify({roster:p.roster,swaps:backup.swaps,plannedLeave:backup.plannedLeave,days:backup.days,anchorLink:p.anchorLink,anchorDate:p.anchorDate}));
+    if(p.anchorLink&&p.anchorDate){ $('my-link').value=p.anchorLink; $('my-wc').value=ymd(monday(parseYmd(p.anchorDate))); $('example-note').hidden=true; save(); }
+  }
+  render();
+}
+boot();
+// Works offline once opened: the page, icons and PDF reader are kept by sw.js
+if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+</script>
+
+</html>
