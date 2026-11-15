@@ -77,16 +77,6 @@ input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-vis
 .chip.best{background:var(--good-bg);color:var(--good)}
 .chip.good{background:var(--warn-bg);color:var(--warn)}
 .cards{display:flex;flex-direction:column;gap:12px}
-#pay-calc summary{list-style:none;font-size:15px}
-#pay-calc summary::-webkit-details-marker{display:none}
-#pay-calc summary::after{content:' ▸';color:var(--accent)}
-#pay-calc[open] summary::after{content:' ▾'}
-.pc-table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;min-width:0;table-layout:auto}
-.pc-table td{padding:6px 0;border-bottom:1px solid var(--line);text-align:left;font-size:14px}
-.pc-table td.n{text-align:right;font-family:var(--f-mono);font-weight:600;white-space:nowrap}
-.pc-table tr.total td{font-weight:700;font-size:16px;border-bottom:none}
-.pc-take{margin-top:8px;padding:10px 12px;border-radius:10px;background:var(--good-bg);color:var(--ink);font-size:14px}
-.pc-take b{color:var(--good);font-family:var(--f-display);font-size:22px;font-weight:800;display:block}
 .selrow{display:flex;flex-wrap:wrap;gap:8px}
 .pick{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}
 .pick input{width:20px;height:20px;accent-color:var(--accent)}
@@ -154,30 +144,6 @@ details summary{cursor:pointer;font-weight:600;color:var(--muted);font-size:14px
     <p class="lede">Paste a swap post and see which weeks on offer line up with your own link: their AM week for your PM week, and whether your days off match theirs.</p>
   </header>
 
-  <details class="panel" id="pay-calc">
-    <summary class="label" style="cursor:pointer;color:var(--ink)">💵 Extra shift pay calculator</summary>
-    <p class="note" style="margin:0">What a BLP or SLP you pick up adds to your pay, at the same rates as Shift Roster.</p>
-    <div class="row">
-      <label class="field"><span>Hourly rate ($)</span><input type="number" id="pc-rate" step="0.001" inputmode="decimal" placeholder="66.504" style="width:120px"></label>
-      <label class="field"><span>Day it starts</span>
-        <select id="pc-day">
-          <option value="0">Monday</option><option value="1">Tuesday</option><option value="2">Wednesday</option><option value="3">Thursday</option><option value="4">Friday</option><option value="5">Saturday</option><option value="6">Sunday</option>
-        </select></label>
-    </div>
-    <div class="row">
-      <label class="field"><span>Hours</span><input type="number" id="pc-hours" step="0.01" inputmode="decimal" placeholder="6" style="width:90px"></label>
-      <span class="note" style="padding-bottom:10px">or</span>
-      <label class="field"><span>Sign on</span><input type="time" id="pc-start"></label>
-      <label class="field"><span>Sign off</span><input type="time" id="pc-end"></label>
-    </div>
-    <div class="row" style="align-items:center">
-      <label class="check"><input type="checkbox" id="pc-ph"> Public holiday</label>
-      <label class="check"><input type="checkbox" id="pc-labour"> Labour Day</label>
-      <label class="field"><span>Usual fortnight taxable pay ($, for the tax estimate)</span><input type="number" id="pc-base" inputmode="decimal" placeholder="4780" style="width:130px"></label>
-    </div>
-    <div id="pc-out" aria-live="polite"></div>
-    <p class="note" style="margin:0">From your payslip: RATE CPH is in cents, so 6650.40 = 66.504. Usual taxable pay is your fortnight gross after pre-tax deductions (Shift Roster's Pay tab shows it as Taxable Income). Estimates only; your payslip comes first.</p>
-  </details>
 
   <section class="panel" aria-labelledby="me-h">
     <div class="label" id="me-h">Your roster and link</div>
@@ -706,46 +672,6 @@ function applyBackup(p,fresh){
   }
   render();
 }
-// ── Extra shift pay ──
-// BLP/SLP worked: 175% (EBA). Worked on past midnight into Saturday 150%, into Sunday 200%.
-// On a public holiday 175% (Labour Day 250%). Tax: ATO Schedule 1 scale 2, from 1 July 2026.
-function fnTax(fnTaxable){
-  const S2=[[362,null,null],[538,0.1500,54.3462],[673,0.2500,108.2135],[721,0.1700,54.3473],[865,0.1790,60.8377],
-    [1282,0.3227,185.1935],[2596,0.3200,181.7319],[3653,0.3900,363.4627],[Infinity,0.4700,655.7704]];
-  const x=Math.floor(fnTaxable/2)+0.99; let y=0;
-  for(const [lim,a,b] of S2){ if(x<lim){ if(a!==null) y=a*x-b; break; } }
-  return Math.max(0,Math.round(y))*2;
-}
-const money=n=>'$'+n.toLocaleString('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2});
-function payCalc(){
-  const rate=parseFloat($('pc-rate').value), out=$('pc-out');
-  const st=$('pc-start').value, en=$('pc-end').value, day=+$('pc-day').value;
-  let hrs=parseFloat($('pc-hours').value), post=0;
-  if(st&&en){ const a=+st.slice(0,2)*60+ +st.slice(3), b=+en.slice(0,2)*60+ +en.slice(3); let m=b-a; if(m<=0){ m+=1440; post=b/60; } hrs=m/60; $('pc-hours').value=hrs.toFixed(2); }
-  if(!rate||!hrs||hrs<=0){ out.innerHTML='<p class="note" style="margin:0">Enter your hourly rate and the hours (or sign-on and sign-off).</p>'; return; }
-  const next=(day+1)%7, D=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'], rows=[];
-  if($('pc-labour').checked) rows.push(['Labour Day on a BLP/SLP',hrs,2.5]);
-  else if($('pc-ph').checked) rows.push(['Public holiday on a BLP/SLP',hrs,1.75]);
-  else if(post&&next===5){ rows.push(['BLP rate, '+D[day]+' to midnight',hrs-post,1.75]); rows.push(['Saturday rate after midnight',post,1.5]); }
-  else if(post&&next===6){ rows.push(['BLP rate, '+D[day]+' to midnight',hrs-post,1.75]); rows.push(['Sunday rate after midnight',post,2.0]); }
-  else rows.push(['BLP/SLP worked',hrs,1.75]);
-  const gross=rows.reduce((s,r)=>s+r[1]*rate*r[2],0);
-  const base=parseFloat($('pc-base').value);
-  const tax=base>0?fnTax(base+gross)-fnTax(base):Math.round(gross*0.32);
-  out.innerHTML='<table class="pc-table">'+rows.map(r=>'<tr><td>'+r[0]+'<br><span class="note">'+r[1].toFixed(2)+' h × $'+rate.toFixed(3)+' × '+Math.round(r[2]*100)+'%</span></td><td class="n">'+money(r[1]*rate*r[2])+'</td></tr>').join('')+
-    '<tr class="total"><td>Extra before tax</td><td class="n">'+money(gross)+'</td></tr>'+
-    '<tr><td>Extra tax'+(base>0?'':' <span class="note">(about 32%; add your usual taxable pay for a closer figure)</span>')+'</td><td class="n">−'+money(tax)+'</td></tr></table>'+
-    '<div class="pc-take">Extra in your pay, after tax<b>'+money(gross-tax)+'</b><span class="note">for '+hrs.toFixed(2)+' hours</span></div>';
-}
-['pc-rate','pc-day','pc-hours','pc-start','pc-end','pc-ph','pc-labour','pc-base'].forEach(id=>{
-  const el=$(id), key='lsm_'+id, saved=store.get(key);
-  if(saved!=null&&['pc-rate','pc-base','pc-day'].includes(id)) el.value=saved;
-  el.addEventListener('input',()=>{ if(id==='pc-hours'){ $('pc-start').value=''; $('pc-end').value=''; } if(['pc-rate','pc-base','pc-day'].includes(id)) store.set(key,el.value); if(id==='pc-labour'&&el.checked) $('pc-ph').checked=true; payCalc(); });
-});
-$('pay-calc').addEventListener('toggle',()=>store.set('lsm_pc_open',$('pay-calc').open?'1':'0'));
-if(store.get('lsm_pc_open')==='1') $('pay-calc').open=true;
-payCalc();
-
 boot();
 // Works offline once opened: the page, icons and PDF reader are kept by sw.js
 if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});

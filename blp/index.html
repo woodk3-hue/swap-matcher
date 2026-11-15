@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#5b4bc4">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="BLP Pay">
+<meta name="description" content="How much a BLP shift adds to your pay.">
+<title>BLP Pay</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Semi+Condensed:wght@700;800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+/* Layout: one short column — the shift, then the answer in a big block. Built to be read in five seconds. */
+:root{
+  --bg:#f2f1f8; --panel:#ffffff; --ink:#17152b; --muted:#615e7a; --line:#dedbea;
+  --blp:#5b4bc4; --blp-ink:#ffffff; --blp-soft:#e9e6fb; --good:#0f7a52; --good-bg:#d9f2e6;
+  --f-display:"Barlow Semi Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);color-scheme:light;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#100f1c; --panel:#1a1830; --ink:#efedf9; --muted:#a29fbd; --line:#2d2a48;
+  --blp:#a99cff; --blp-ink:#151225; --blp-soft:#2a2552; --good:#5fd3a2; --good-bg:#123a2c; color-scheme:dark}}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--f-body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:18px 40px}
+.wrap{max-width:520px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+h1{font:800 30px/1.1 var(--f-display);margin:0;letter-spacing:.01em}
+h1 span{color:var(--blp)}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:14px}
+.label{font:700 12px var(--f-display);letter-spacing:.09em;text-transform:uppercase;color:var(--muted)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:flex-end}
+.field{display:flex;flex-direction:column;gap:4px;min-width:0}
+.field span{font-size:12px;font-weight:600;color:var(--muted)}
+input,select{font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:10px 12px}
+input[type=number]{font-family:var(--f-mono);font-weight:600}
+input:focus-visible,select:focus-visible,button:focus-visible{outline:2px solid var(--blp);outline-offset:2px}
+.big{display:flex;align-items:flex-end;gap:6px}
+.big input{width:84px;font-size:26px;padding:8px 10px;text-align:center}
+.big b{font:700 22px var(--f-mono);padding-bottom:12px}
+.quick{display:flex;flex-wrap:wrap;gap:8px}
+.chipbtn{font:600 15px var(--f-mono);padding:9px 14px;border-radius:999px;border:1px solid var(--line);background:var(--bg);color:var(--ink);cursor:pointer}
+.chipbtn.on{background:var(--blp);border-color:var(--blp);color:var(--blp-ink)}
+.check{display:flex;gap:8px;align-items:center;font-size:14px;cursor:pointer}
+.seg{display:flex;border:1px solid var(--line);border-radius:10px;overflow:hidden}
+.seg label{flex:1;text-align:center;padding:9px 8px;font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg label:has(input:checked){background:var(--blp);color:var(--blp-ink)}
+.answer{background:var(--blp);color:var(--blp-ink);border-radius:16px;padding:18px;display:flex;flex-direction:column;gap:2px}
+.answer .k{font:700 12px var(--f-display);letter-spacing:.09em;text-transform:uppercase;opacity:.85}
+.answer .v{font:800 46px/1 var(--f-display);font-variant-numeric:tabular-nums}
+.answer .s{font-size:14px;opacity:.9}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+td{padding:7px 0;border-bottom:1px solid var(--line);font-size:14px}
+td.n{text-align:right;font:600 14px var(--f-mono);white-space:nowrap;padding-left:10px}
+td small{display:block;color:var(--muted);font-size:12px}
+tr.t td{font-weight:700;border-bottom:none}
+.note{font-size:12.5px;color:var(--muted);margin:0}
+details summary{cursor:pointer;font-size:14px;font-weight:600;color:var(--muted)}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1><span>BLP</span> Pay</h1>
+
+  <section class="panel" aria-label="Your shift">
+    <div class="label">How long is the BLP?</div>
+    <div class="quick" id="quick">
+      <button class="chipbtn" type="button" data-h="6:00">6:00</button>
+      <button class="chipbtn" type="button" data-h="7:30">7:30</button>
+      <button class="chipbtn" type="button" data-h="8:00">8:00</button>
+      <button class="chipbtn" type="button" data-h="8:30">8:30</button>
+      <button class="chipbtn" type="button" data-h="9:00">9:00</button>
+    </div>
+    <div class="row">
+      <div class="big"><label class="field"><span>Hours</span><input type="number" id="h" min="0" max="16" inputmode="numeric" value="7"></label><b>:</b>
+        <label class="field"><span>Minutes</span><input type="number" id="m" min="0" max="59" inputmode="numeric" value="30"></label></div>
+      <label class="field"><span>Hourly rate ($)</span><input type="number" id="rate" step="0.001" inputmode="decimal" style="width:116px"></label>
+    </div>
+    <details id="more">
+      <summary>Runs past midnight, public holiday, tax</summary>
+      <div style="display:flex;flex-direction:column;gap:12px;margin-top:12px">
+        <div class="row">
+          <label class="field"><span>Sign on</span><input type="time" id="on"></label>
+          <label class="field"><span>Sign off</span><input type="time" id="off"></label>
+          <label class="field"><span>Day it starts</span><select id="day"><option value="0">Mon</option><option value="1">Tue</option><option value="2">Wed</option><option value="3">Thu</option><option value="4">Fri</option><option value="5">Sat</option><option value="6">Sun</option></select></label>
+        </div>
+        <div class="field"><span>If it runs past midnight, the next day is</span>
+          <div class="seg" role="radiogroup" aria-label="Next day">
+            <label><input type="radio" name="next" value="off" id="next-off" checked>Also a BLP/SLP</label>
+            <label><input type="radio" name="next" value="work" id="next-work">A working day</label>
+          </div>
+        </div>
+        <div class="row">
+          <label class="check"><input type="checkbox" id="ph"> Public holiday</label>
+          <label class="check"><input type="checkbox" id="lab"> Labour Day</label>
+        </div>
+        <label class="field"><span>Usual fortnight taxable pay ($), for a closer tax figure</span><input type="number" id="base" inputmode="decimal" placeholder="e.g. 4780" style="width:150px"></label>
+      </div>
+    </details>
+  </section>
+
+  <section class="answer" aria-live="polite" id="answer">
+    <span class="k">Extra in your pay, after tax</span>
+    <span class="v" id="take">—</span>
+    <span class="s" id="sub"></span>
+  </section>
+
+  <section class="panel" aria-label="Working">
+    <table id="tbl"></table>
+    <p class="note" id="taxnote"></p>
+  </section>
+
+  <p class="note">Rates: BLP/SLP worked 175%. If it runs past midnight into another BLP/SLP it stays 175% for the whole shift. If the next day is a working day, the hours after midnight are paid at that day's rate: Saturday 150%, Sunday 200%, a weekday 100%. Public holiday on a BLP 175%, Labour Day 250%. Hourly rate is your payslip's RATE CPH in cents ÷ 100 (6650.40 = 66.504). Tax is the ATO fortnightly table (scale 2) on top of your usual pay, or about 32% if that's blank. Estimates only; your payslip comes first.</p>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const store={get(k){try{return localStorage.getItem(k);}catch(e){return null;}},set(k,v){try{localStorage.setItem(k,v);}catch(e){}}};
+const D=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+const money=n=>'$'+n.toLocaleString('en-AU',{minimumFractionDigits:2,maximumFractionDigits:2});
+function fnTax(x0){ // ATO Schedule 1 scale 2 from 1 July 2026, fortnightly
+  const S2=[[362,null,null],[538,0.15,54.3462],[673,0.25,108.2135],[721,0.17,54.3473],[865,0.179,60.8377],[1282,0.3227,185.1935],[2596,0.32,181.7319],[3653,0.39,363.4627],[Infinity,0.47,655.7704]];
+  const x=Math.floor(x0/2)+0.99; let y=0; for(const [l,a,b] of S2){ if(x<l){ if(a!==null) y=a*x-b; break; } } return Math.max(0,Math.round(y))*2;
+}
+function hm(h){ const H=Math.floor(h+1e-9), M=Math.round((h-H)*60); return H+':'+String(M).padStart(2,'0'); }
+function calc(){
+  const rate=parseFloat($('rate').value);
+  let hrs=(parseFloat($('h').value)||0)+(parseFloat($('m').value)||0)/60, post=0;
+  const on=$('on').value, off=$('off').value, day=+$('day').value;
+  if(on&&off){ const a=+on.slice(0,2)*60+ +on.slice(3), b=+off.slice(0,2)*60+ +off.slice(3); let m=b-a; if(m<=0){ m+=1440; post=b/60; } hrs=m/60; $('h').value=Math.floor(m/60); $('m').value=m%60; }
+  document.querySelectorAll('#quick .chipbtn').forEach(b=>b.classList.toggle('on',b.dataset.h===hm(hrs)));
+  if(!rate||!hrs){ $('take').textContent='—'; $('sub').textContent=!rate?'Enter your hourly rate':'Enter the hours'; $('tbl').innerHTML=''; $('taxnote').textContent=''; return; }
+  const next=(day+1)%7, rows=[];
+  if($('lab').checked) rows.push(['Labour Day on a BLP/SLP',hrs,2.5]);
+  else if($('ph').checked) rows.push(['Public holiday on a BLP/SLP',hrs,1.75]);
+  else if(post&&$('next-work').checked){
+    const r=next===5?1.5:next===6?2.0:1.0, nm=next===5?'Saturday rate':next===6?'Sunday rate':'Ordinary rate';
+    rows.push(['BLP rate, '+D[day]+' to midnight',hrs-post,1.75]); rows.push([nm+', '+D[next]+' after midnight',post,r]);
+  } else rows.push(['BLP/SLP worked'+(post?' (into another BLP/SLP)':''),hrs,1.75]);
+  const gross=rows.reduce((s,r)=>s+r[1]*rate*r[2],0);
+  const base=parseFloat($('base').value);
+  const tax=base>0?fnTax(base+gross)-fnTax(base):Math.round(gross*0.32);
+  $('take').textContent=money(gross-tax);
+  $('sub').textContent=money(gross)+' before tax · '+hm(hrs)+' hours';
+  $('tbl').innerHTML=rows.map(r=>'<tr><td>'+r[0]+'<small>'+hm(r[1])+' h ('+r[1].toFixed(2)+') × $'+rate.toFixed(3)+' × '+Math.round(r[2]*100)+'%</small></td><td class="n">'+money(r[1]*rate*r[2])+'</td></tr>').join('')+
+    '<tr class="t"><td>Before tax</td><td class="n">'+money(gross)+'</td></tr><tr><td>Extra tax</td><td class="n">−'+money(tax)+'</td></tr><tr class="t"><td>After tax</td><td class="n">'+money(gross-tax)+'</td></tr>';
+  $('taxnote').textContent=base>0?'Tax worked out on top of a usual fortnight of '+money(base)+'.':'Tax estimated at about 32%. Add your usual fortnight taxable pay under “Runs past midnight, public holiday, tax” for a closer figure.';
+}
+['rate','base','day'].forEach(id=>{ const v=store.get('blp_'+id); if(v!=null) $(id).value=v; });
+if(!$('rate').value) $('rate').value='66.504';  // drivers' rate (payslip 6650.40) until you put yours in
+if(store.get('blp_next')==='work') $('next-work').checked=true;
+['h','m'].forEach(id=>$(id).addEventListener('input',()=>{ $('on').value=''; $('off').value=''; calc(); }));
+['rate','base','day'].forEach(id=>$(id).addEventListener('input',()=>{ store.set('blp_'+id,$(id).value); calc(); }));
+['on','off','ph','next-off','next-work'].forEach(id=>$(id).addEventListener('input',()=>{ store.set('blp_next',$('next-work').checked?'work':'off'); calc(); }));
+$('lab').addEventListener('input',()=>{ if($('lab').checked) $('ph').checked=true; calc(); });
+$('quick').addEventListener('click',e=>{ const b=e.target.closest('[data-h]'); if(!b) return; const [H,M]=b.dataset.h.split(':'); $('h').value=+H; $('m').value=+M; $('on').value=''; $('off').value=''; calc(); });
+calc();
+if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(()=>{});
+</script>
+</body>
+</html>

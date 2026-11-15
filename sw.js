@@ -1,7 +1,10 @@
 // Offline support for Link Swap Matcher.
 // The page is fetched network-first so updates show straight away, with the saved copy used offline.
 // Icons, the manifest, the PDF reader (cdnjs) and fonts are kept once fetched.
-const CACHE='swap-matcher-v1';
+const CACHE='swap-matcher-v2';
+// Only this folder's own files: other apps in sub-folders (e.g. blp/) look after themselves
+const HOME=new URL('./',self.location).pathname;
+function own(url){ const u=new URL(url); return u.origin===self.location.origin&&u.pathname.indexOf(HOME)===0&&u.pathname.slice(HOME.length).indexOf('/')<0; }
 const CORE=['./','./index.html','./manifest.json','./icon-192.png','./icon-512.png'];
 
 self.addEventListener('install',function(e){
@@ -20,6 +23,7 @@ self.addEventListener('fetch',function(e){
   const req=e.request;
   if(req.method!=='GET') return;
   if(req.mode==='navigate'){
+    if(!own(req.url)) return;
     e.respondWith(fetch(req).then(function(res){
       const copy=res.clone();
       caches.open(CACHE).then(function(c){ c.put('./index.html',copy); });
@@ -27,7 +31,7 @@ self.addEventListener('fetch',function(e){
     }).catch(function(){ return caches.match('./index.html'); }));
     return;
   }
-  if(req.url.indexOf(self.location.origin)===0||isLibrary(req.url)){
+  if(own(req.url)||isLibrary(req.url)){
     e.respondWith(caches.match(req).then(function(hit){
       return hit||fetch(req).then(function(res){
         if(res&&(res.ok||res.type==='opaque')){ const copy=res.clone(); caches.open(CACHE).then(function(c){ c.put(req,copy); }); }
