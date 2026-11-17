@@ -77,6 +77,11 @@ input:focus-visible,textarea:focus-visible,select:focus-visible,button:focus-vis
 .chip.best{background:var(--good-bg);color:var(--good)}
 .chip.good{background:var(--warn-bg);color:var(--warn)}
 .cards{display:flex;flex-direction:column;gap:12px}
+.card.done{opacity:.6}
+.donetag{font:700 12px var(--f-body);padding:3px 9px;border-radius:999px;background:var(--off-bg);color:var(--off);white-space:nowrap}
+.donelist{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px;color:var(--muted)}
+.donechip{display:inline-flex;align-items:center;gap:4px;font:600 13px var(--f-mono);padding:4px 6px 4px 10px;border-radius:999px;background:var(--off-bg);color:var(--off)}
+.donechip button{border:none;background:none;color:inherit;font-size:16px;line-height:1;cursor:pointer;padding:0 4px}
 .selrow{display:flex;flex-wrap:wrap;gap:8px}
 .pick{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--muted);cursor:pointer}
 .pick input{width:20px;height:20px;accent-color:var(--accent)}
@@ -177,6 +182,7 @@ details summary{cursor:pointer;font-weight:600;color:var(--muted);font-size:14px
       <label class="check"><input type="checkbox" id="show-sold"> Show sold</label>
       <label class="check"><input type="checkbox" id="best-first"> Best matches first</label>
       <label class="check"><input type="checkbox" id="hide-mism"> Hide BLP/SLP mismatches (keeps part-week swaps)</label>
+      <label class="check"><input type="checkbox" id="show-done"> Show weeks I've already swapped</label>
     </div>
   </section>
 
@@ -185,6 +191,7 @@ details summary{cursor:pointer;font-weight:600;color:var(--muted);font-size:14px
     <div class="skipped" id="skipped" hidden></div>
     <div class="summary" id="summary"></div>
     <p class="hidnote" id="hidnote" hidden></p>
+    <div class="donelist" id="donelist" hidden></div>
     <div class="selrow" id="selrow" hidden>
       <button class="btn" type="button" id="sel-matches">Tick all matches</button>
       <button class="btn" type="button" id="sel-clear">Clear ticks</button>
@@ -196,6 +203,7 @@ details summary{cursor:pointer;font-weight:600;color:var(--muted);font-size:14px
     <span id="copy-count"></span>
     <label class="check"><input type="checkbox" id="copy-shifts" checked> Include my shifts</label>
     <button class="btn primary" type="button" id="copy-sel">Copy selected</button>
+    <button class="btn" type="button" id="mark-sel">Mark ticked as swapped</button>
     <span class="copied" id="copy-done" hidden>Copied</span>
   </div>
 
@@ -527,7 +535,7 @@ function blpHtml(b,showPart){
   let mfTxt='';
   let box='';
   if(b.mfOnly&&showPart) box=b.okSpans.map(s=>'<div class="partbox"><b>✓ '+s.name+' swap OK</b> You both have 2 days off '+s.name+' (yours '+dl(s.mine,b.myDays)+'; theirs '+dl(s.theirs,b.theirDays)+(s.same?'; same days':'')+'), so you can swap '+s.name+' and keep your own '+s.keep+'.</div>').join('');
-  else if(!b.ok) mfTxt='<br>Part-week swap not possible. Days off Mon–Sat: yours '+b.spans[0].mine.length+', theirs '+b.spans[0].theirs.length+'. Days off Mon–Fri: yours '+b.spans[1].mine.length+', theirs '+b.spans[1].theirs.length+'. Both need 2.';
+  else if(!b.ok&&!b.mfOnly) mfTxt='<br>Part-week swap not possible. Days off Mon–Sat: yours '+b.spans[0].mine.length+', theirs '+b.spans[0].theirs.length+'. Days off Mon–Fri: yours '+b.spans[1].mine.length+', theirs '+b.spans[1].theirs.length+'. Both need 2.';
   return '<p class="blpline '+(b.ok?'ok':b.mfOnly?'mf':'bad')+'"><span class="blptag">'+(b.ok?'BLP/SLP balanced ✓':'BLP/SLP mismatch ⚠')+'</span> Yours '+fmt(b.mine)+', theirs '+fmt(b.theirs)+'. '+b.text+
     (b.kindDiff.length?' Different kind of day off on '+b.kindDiff.join(', ')+'.':'')+mfTxt+'</p>'+box;
 }
@@ -565,6 +573,11 @@ function render(){
   if($('only-away').checked) all=all.filter(x=>x.it.sold||x.res.myGive>0);
   const aw2=awaySet(), word=want==='am'?([aw2.pm?'PM':'',aw2.am3?'AM3':''].filter(Boolean).join(' or ')||'PM'):'AM';
   $('hidnote').hidden=!hid; $('hidnote').textContent=hid+' week'+(hid===1?'':'s')+' hidden because your link has no '+word+' shifts then. Untick “Only show weeks where I have these” to see '+(hid===1?'it':'them')+'.';
+  all.forEach(x=>{ x.done=isDone(ymd(x.it.wc)); });
+  const doneHid=$('show-done').checked?0:all.filter(x=>!x.it.sold&&x.done).length;
+  if(!$('show-done').checked) all=all.filter(x=>x.it.sold||!x.done);
+  if(doneHid){ $('hidnote').hidden=false; $('hidnote').textContent=($('hidnote').textContent&&hid?$('hidnote').textContent+' ':'')+doneHid+' week'+(doneHid===1?'':'s')+' hidden because you\'ve already swapped '+(doneHid===1?'it':'them')+'.'; }
+  renderDoneList();
   const open=all.filter(x=>!x.it.sold);
   const n=k=>open.filter(x=>x.res.level===k).length;
   sum.innerHTML='<span class="chip best">'+n('best')+' best</span><span class="chip good">'+n('good')+' good</span><span class="chip possible">'+n('possible')+' possible</span><span class="chip">'+(open.length-n('best')-n('good')-n('possible'))+' no match</span><span class="chip">'+(all.length-open.length)+' sold</span><span class="chip mism">'+open.filter(x=>x.res.blp&&!x.res.blp.ok&&!x.res.blp.mfOnly).length+' BLP/SLP mismatch</span><span class="chip best">'+open.filter(x=>x.res.blp&&x.res.blp.mfOnly).length+' part-week swap</span>';
@@ -575,16 +588,19 @@ function render(){
   list.forEach(x=>{
     const {it,mine,res}=x;
     const el=document.createElement('article');
-    el.className='card '+(res.level==='best'?'best':res.level==='good'?'good':'')+(res.blp&&res.blp.mfOnly&&res.level!=='no'?' part':'')+(it.sold?' sold':'');
+    el.className='card '+(res.level==='best'?'best':res.level==='good'?'good':'')+(res.blp&&res.blp.mfOnly&&res.level!=='no'?' part':'')+(it.sold?' sold':'')+(x.done?' done':'');
     const key=ymd(it.wc)+'|'+(it.link||'');
     el.innerHTML='<div class="head">'+(it.sold?'':'<label class="pick"><input type="checkbox" data-key="'+key+'"'+(picked.has(key)?' checked':'')+' aria-label="Tick W/C '+ddmm(it.wc)+'"></label>')+'<span class="wc">W/C '+ddmm(it.wc)+'<small>Mon '+it.wc.toLocaleDateString('en-AU',{day:'numeric',month:'short',year:'numeric'})+(it.link?' · Link '+it.link:'')+'</small></span>'+
-      '<span class="verdict '+(res.level==='no'?'':res.level)+'">'+(it.sold?'Sold · ':'')+res.verdict+'</span></div>'+
+      (x.done?'<span class="donetag">Swapped ✓</span>':'<span class="verdict '+(res.level==='no'?'':res.level)+'">'+(it.sold?'Sold · ':'')+res.verdict+'</span>')+'</div>'+
       '<p class="why">'+res.why+'</p>'+blpHtml(res.blp,res.level!=='no')+gridHtml(it,mine,res)+
-      (res.level!=='no'&&!it.sold?'<div class="foot"><button class="btn" type="button">Copy a reply</button><span class="copied" hidden>Copied</span></div>':'');
+      (!it.sold?'<div class="foot">'+(res.level!=='no'&&!x.done?'<button class="btn" type="button" data-act="reply">Copy a reply</button>':'')+
+        '<button class="btn" type="button" data-act="done">'+(x.done?'Not swapped after all':'I\'ve swapped this week')+'</button><span class="copied" hidden>Copied</span></div>':'');
     const cb=el.querySelector('input[data-key]');
     if(cb) cb.addEventListener('change',()=>{cb.checked?picked.add(key):picked.delete(key);updateCopyBar();});
-    const b=el.querySelector('button');
+    const b=el.querySelector('[data-act="reply"]');
     if(b) b.addEventListener('click',()=>copyText(swapMessage([x]),()=>{const c=el.querySelector('.copied');c.hidden=false;setTimeout(()=>c.hidden=true,1800);}));
+    const d=el.querySelector('[data-act="done"]');
+    if(d) d.addEventListener('click',()=>{ const w=ymd(it.wc); if(!x.done) setDone(w,true); else { setDone(w,false); if(isDone(w)) alert('This week is also in your Shift Roster backup as a swap.'); } picked.delete(key); render(); });
     cards.appendChild(el);
   });
   if(!list.length) cards.innerHTML='<div class="empty">Every week in this post is sold. Tick “Show sold” to see them.</div>';
@@ -593,6 +609,15 @@ function render(){
   const keys=new Set(lastList.map(x=>ymd(x.it.wc)+'|'+(x.it.link||'')));
   [...picked].forEach(k=>{if(!keys.has(k)) picked.delete(k);});
   updateCopyBar();
+}
+// Weeks you've already swapped away, by the Monday they start: marked here, plus any in a loaded app backup
+function doneMarked(){ try{ return new Set(JSON.parse(store.get('lsm_done')||'[]')); }catch(e){ return new Set(); } }
+function setDone(wcs,on){ const s=doneMarked(); on?s.add(wcs):s.delete(wcs); store.set('lsm_done',JSON.stringify([...s].sort())); }
+function isDone(wcs){ return doneMarked().has(wcs)||!!(backup&&(backup.swaps||[]).some(s=>s.wc===wcs)); }
+function renderDoneList(){
+  const el=$('donelist'), marked=[...doneMarked()].sort();
+  el.hidden=!marked.length;
+  el.innerHTML=marked.length?'<span>Weeks marked as swapped:</span>'+marked.map(w=>'<span class="donechip">'+ddmm(parseYmd(w))+'<button type="button" data-undone="'+w+'" aria-label="Unmark W/C '+ddmm(parseYmd(w))+'">×</button></span>').join(''):'';
 }
 function updateCopyBar(){
   const n=picked.size;
@@ -640,6 +665,9 @@ function boot(){
   $('sel-matches').addEventListener('click',()=>{lastList.filter(x=>x.res.level!=='no').forEach(x=>picked.add(ymd(x.it.wc)+'|'+(x.it.link||'')));render();});
   $('sel-clear').addEventListener('click',()=>{picked.clear();render();});
   $('copy-sel').addEventListener('click',copySelected);
+  $('mark-sel').addEventListener('click',()=>{ [...picked].forEach(k=>setDone(k.split('|')[0],true)); picked.clear(); render(); });
+  $('donelist').addEventListener('click',e=>{ const b=e.target.closest('[data-undone]'); if(b){ setDone(b.dataset.undone,false); render(); } });
+  {const v=store.get('lsm_show-done'); if(v!=null) $('show-done').checked=v==='1'; $('show-done').addEventListener('input',()=>{store.set('lsm_show-done',$('show-done').checked?'1':'0');render();});}
   {const v=store.get('lsm_copy_shifts'); if(v!=null) $('copy-shifts').checked=v==='1'; $('copy-shifts').addEventListener('input',()=>store.set('lsm_copy_shifts',$('copy-shifts').checked?'1':'0'));}
   $('roster-pdf').addEventListener('change',async e=>{
     const f=e.target.files[0]; if(!f) return; e.target.value='';
